@@ -1,10 +1,4 @@
-module Data.Path (
-    Path()
-  , root
-  , ls 
-  , filename
-  , isDirectory
-  , size) where
+module Data.Path where
 
 import Data.Maybe
 import Data.Array

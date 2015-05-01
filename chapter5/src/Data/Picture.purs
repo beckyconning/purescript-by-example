@@ -1,6 +1,9 @@
 module Data.Picture where
 
 import Data.Foldable
+import Data.Array
+import Data.Maybe
+import Math
 
 data Point = Point 
   { x :: Number
@@ -16,6 +19,7 @@ data Shape
   | Rectangle Point Number Number
   | Line Point Point
   | Text Point String
+  | Clipped Point Picture
 
 showShape :: Shape -> String
 showShape (Circle c r) = 
@@ -77,6 +81,7 @@ shapeBounds (Text (Point { x = x, y = y }) _) = Bounds
   , bottom: y
   , right:  x
   }
+shapeBounds (Clipped _ picture) = bounds picture
 
 (\/) :: Bounds -> Bounds -> Bounds
 (\/) (Bounds b1) (Bounds b2) = Bounds
@@ -115,3 +120,62 @@ bounds = foldl combine emptyBounds
   where
   combine :: Bounds -> Shape -> Bounds
   combine b shape = shapeBounds shape \/ b
+
+gcd :: Number -> Number -> Number
+gcd n 0 = n
+gcd 0 m = m
+gcd n m = if n > m then gcd (n - m) m else gcd n (m - n)
+
+gcd' :: Number -> Number -> Number
+gcd' n 0 = n
+gcd' 0 m = m
+gcd' n m | n > m = gcd (n - m) m
+gcd' n m         = gcd n (m - n)
+
+factorial :: Number -> Number
+factorial 0 = 1
+factorial n = n * (factorial (n - 1))
+
+pascal :: Number -> Number -> Number
+pascal _ k | k < 1 = 1
+pascal n k | k > n = 0
+pascal n k = (pascal (n - 1) k) + (pascal (n - 1) (k - 1))
+
+allTrue :: [Boolean] -> Boolean
+allTrue [] = true
+allTrue (x : xs) = x && allTrue xs
+
+isSorted :: [Number] -> Boolean
+isSorted [] = true
+isSorted [_] = true
+isSorted (x : y : zs) = x < y && isSorted (y : zs)
+
+getCity :: forall a b. { address :: { city :: String | b } | a } -> String
+getCity x = x.address.city
+
+flatten :: forall a. [[a]] -> [a]
+flatten [] = []
+flatten [x] = x
+flatten (x : y : zs) = x ++ y ++ (flatten zs)
+
+aCircle :: Shape
+aCircle = Circle (Point { x: 0, y: 0 }) 10
+
+scaleByTwo :: Shape -> Shape
+scaleByTwo (Circle position radius) = Circle position (radius * 2)
+scaleByTwo (Rectangle position width height) = Rectangle position (width * 2) (height * 2)
+scaleByTwo (Line (Point start) (Point end)) = Line scaledStart scaledEnd
+  where
+  difference = { x: end.x - start.x, y: end.y - start.y }
+  scaledStart = Point { x: start.x - (difference.x / 2), y: start.y - (difference.y / 2) }
+  scaledEnd = Point { x: end.x + (difference.x / 2), y: end.y + (difference.y / 2) }
+scaleByTwo text@(Text _ _) = text
+
+shapeText :: Shape -> Maybe String
+shapeText (Text _ text) = Just text
+shapeText _ = Nothing
+
+area :: Shape -> Number
+area (Circle _ radius) = 2 * (pi * (radius `pow` 2))
+area (Rectangle _ width height) = width * height
+are _ = 0

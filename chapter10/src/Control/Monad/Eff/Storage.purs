@@ -15,9 +15,16 @@ foreign import setItem
   \  };\
   \}" :: forall eff. String -> String -> Eff (storage :: Storage | eff) Unit
 
-foreign import getItem 
+foreign import getItem
   "function getItem(key) {\
   \  return function() {\
   \    return window.localStorage.getItem(key);\
   \  }\
-  \}" :: forall eff. String -> Eff (storage :: Storage | eff) Foreign 
+  \}" :: forall eff. String -> Eff (storage :: Storage | eff) Foreign
+
+foreign import removeItem
+  "function removeItem(key) {\
+  \  return function() {\
+  \     window.localStorage.removeItem(key);\
+  \  }\
+  \}" :: forall eff. String -> Eff (storage :: Storage | eff) Unit

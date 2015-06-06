@@ -6,6 +6,7 @@ import Data.Foreign
 import Data.Foreign.Class
 import Data.AddressBook
 import Data.AddressBook.Validation
+import Data.Validation
 
 import Data.Traversable
 
@@ -27,29 +28,37 @@ valueOf sel = do
         Right s -> s
         _ -> ""
 
-displayValidationErrors :: forall eff. [String] -> Eff (dom :: DOM | eff) Unit
+displayValidationErrors :: forall eff. [ValidationError] -> Eff (dom :: DOM, trace :: Trace | eff) Unit
 displayValidationErrors errs = do
-  alert <- createElement "div"
-    >>= addClass "alert"
-    >>= addClass "alert-danger"
-
-  ul <- createElement "ul"
-  ul `appendChild` alert
-
-  foreachE errs $ \err -> do
-    li <- createElement "li" >>= setText err
-    li `appendChild` ul
-    return unit
-
-  Just validationErrors <- querySelector "#validationErrors"
-  alert `appendChild` validationErrors
-
+  foreachE errs $ \(ValidationError err field) -> do
+    maybeNode <- querySelector $ fieldErrorSelector field
+    case maybeNode of
+      Just node -> do
+        alert <- createElement "div" >>= setText err >>= addClass "small" >>= addClass "alert" >>= addClass "alert-danger"
+        alert `appendChild` node
+        return unit
+      Nothing -> trace $ "Couldn't find " ++ (fieldErrorSelector field) ++ "."
   return unit
 
-validateControls :: forall eff. Eff (trace :: Trace, dom :: DOM | eff) (Either [String] Person)
+clearErrors :: forall e. Eff (dom :: DOM, trace :: Trace | e) [Unit]
+clearErrors = traverse ((>>= maybeClear) <<< fieldErrorNode) allFields
+  where
+  maybeClear = maybe (return unit) clear
+  clear node = setInnerHTML "" node >>= \_ -> return unit
+  allFields = [ FirstNameField
+              , LastNameField
+              , StreetField
+              , CityField
+              , StateField
+              , PhoneField HomePhone
+              , PhoneField CellPhone
+              , PhoneField WorkPhone
+              , PhoneField OtherPhone
+              ]
+
+validateControls :: forall eff. Eff (trace :: Trace, dom :: DOM | eff) (V Errors Person)
 validateControls = do
   trace "Running validators"
-
   p <- person <$> valueOf "#inputFirstName"
               <*> valueOf "#inputLastName"
               <*> (address <$> valueOf "#inputStreet"
@@ -58,20 +67,23 @@ validateControls = do
               <*> sequence [ phoneNumber HomePhone <$> valueOf "#inputHomePhone"
                            , phoneNumber CellPhone <$> valueOf "#inputCellPhone"
                            ]
-
   return $ validatePerson' p
+
+fieldErrorSelector :: forall eff. Field -> String
+fieldErrorSelector field = "#error" ++ show field
+
+fieldErrorNode :: forall eff. Field -> Eff (trace :: Trace, dom :: DOM | eff) (Maybe Node)
+fieldErrorNode field = querySelector selector >>= warnIfNothing
+  where
+  warnIfNothing (Just x) = return $ Just x
+  warnIfNothing Nothing = trace ("Couldn't find \"" ++ selector ++ "\".") >>= \_ -> return Nothing
+  selector = fieldErrorSelector field
 
 validateAndUpdateUI :: forall eff. Eff (trace :: Trace, dom :: DOM | eff) Unit
 validateAndUpdateUI = do
-  Just validationErrors <- querySelector "#validationErrors"
-  setInnerHTML "" validationErrors
-
+  clearErrors
   errorsOrResult <- validateControls
-
-  case errorsOrResult of
-    Left errs -> displayValidationErrors errs
-    Right result -> print result
-
+  runV displayValidationErrors print errorsOrResult
   return unit
 
 setupEventHandlers :: forall eff. Eff (trace :: Trace, dom :: DOM | eff) Unit

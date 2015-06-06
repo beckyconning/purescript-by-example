@@ -3,6 +3,7 @@ module Main where
 import Data.Maybe
 import Data.Array (length)
 import Data.Either
+import Data.Validation
 import Data.Foreign
 import Data.Foreign.Null
 import Data.Foreign.Class
@@ -30,26 +31,33 @@ newtype FormData = FormData
   , cellPhone  :: String
   }
 
+newtype Tagged a b = Tagged (Either a b)
+
+--instance taggedIsForeign :: IsForeign (Tagged a b) where
+--  read value = f <$> readProp "tag" value <*> readProp "value" value
+
+instance taggedIsForeign :: (IsForeign a, IsForeign b) => IsForeign (Tagged a b) where
+read object = readProp "tag" object >>= \tag -> case tag of
+  "Left" -> readProp "value" object >>= \value -> return $ Tagged $ Left value
+  "Right" -> readProp "value" object >>= \value -> return $ Tagged $ Right value
+
 instance formDataIsForeign :: IsForeign FormData where
-  read value = do
-    firstName   <- readProp "firstName" value
-    lastName    <- readProp "lastName"  value
-
-    street      <- readProp "street"    value
-    city        <- readProp "city"      value
-    state       <- readProp "state"     value
-
-    homePhone   <- readProp "homePhone" value
-    cellPhone   <- readProp "cellPhone" value
-
-    return $ FormData
+  read value = mkFormData
+    <$> readProp "firstName" value
+    <*> readProp "lastName"  value
+    <*> readProp "street"    value
+    <*> readProp "city"      value
+    <*> readProp "state"     value
+    <*> readProp "homePhone" value
+    <*> readProp "cellPhone" value
+    where
+    mkFormData :: String -> String -> String -> String -> String -> String -> String -> FormData
+    mkFormData firstName lastName street city state homePhone cellPhone = FormData
       { firstName  : firstName
       , lastName   : lastName
-
       , street     : street
       , city       : city
       , state      : state
-
       , homePhone  : homePhone
       , cellPhone  : cellPhone
       }
@@ -86,7 +94,9 @@ loadSavedData = do
     savedData :: F (Maybe FormData)
     savedData = do
       jsonOrNull <- read item
+      -- read :: Foreign -> F FormData
       traverse readJSON (runNull jsonOrNull)
+      -- traverse :: (String -> F FormData) -> Null String -> F (Maybe FormData)
 
   case savedData of
     Left err -> alert $ "Unable to read saved form data: " ++ show err
@@ -110,13 +120,13 @@ validateAndSaveEntry = do
 
   errorsOrResult <- validateControls
 
-  case errorsOrResult of
-    Left errs -> alert $ "There are " ++ show (length errs) ++ " validation errors."
-    Right result -> do
+  runV f g errorsOrResult
+  return unit
+    where
+    f errs = alert $ "There are " ++ show (length errs) ++ " validation errors."
+    g result = do
       setItem "person" $ stringify $ toForeign $ toFormData result
       alert "Saved"
-
-  return unit
 
 main :: forall eff. Eff (trace :: Trace, alert :: Alert, dom :: DOM, storage :: Storage | eff) Unit
 main = do

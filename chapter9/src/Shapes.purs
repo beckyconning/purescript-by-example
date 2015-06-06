@@ -27,6 +27,8 @@ main = do
   
   setFillStyle "#00FF00" ctx
 
+  setStrokeStyle "#000000" ctx
+
   fillPath ctx $ arc ctx $ translate 200 200 
     { x: 300
     , y: 300
@@ -34,7 +36,15 @@ main = do
     , start: Math.pi * 5 / 8
     , end: Math.pi * 2
     }
-    
+
+  strokePath ctx $ arc ctx $ translate 200 200 
+    { x: 300
+    , y: 300
+    , r: 50 
+    , start: Math.pi * 5 / 8
+    , end: Math.pi * 2
+    }
+
   setFillStyle "#FF0000" ctx
 
   fillPath ctx $ do

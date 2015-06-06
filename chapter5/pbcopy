@@ -1,0 +1,4 @@
+pascal :: Number -> Number -> Number
+pascal _ k | 1 > k = 1
+pascal n k | k > n = 0
+pascal n k = (pascal (n - 1) k) + (pascal (n - 1) (k - 1))

@@ -3,6 +3,7 @@ module Data.Hashable where
 import Prelude hiding ((<#>))
 
 import Data.Maybe
+import Data.Foldable
 import Data.Tuple
 import Data.Either
 import Data.String
@@ -48,3 +49,37 @@ instance hashTuple :: (Hashable a, Hashable b) => Hashable (Tuple a b) where
 instance hashEither :: (Hashable a, Hashable b) => Hashable (Either a b) where
   hash (Left a) = 0 <#> hash a
   hash (Right b) = 1 <#> hash b
+
+dups :: forall a. (Hashable a) => [a] -> Boolean
+dups [] = false
+dups (x : xs) = foldr f false xs || dups xs
+  where
+  f y acc = acc || ((hash x) == (hash y) && x == y)
+
+newtype Uniform = Uniform Number
+
+instance eqUniform :: Eq Uniform where
+  (==) (Uniform u1) (Uniform u2) = u1 % 1.0 == u2 % 1.0
+  (/=) (Uniform u1) (Uniform u2) = u1 % 1.0 /= u2 % 1.0
+
+instance hashUniform :: Hashable Uniform where
+  hash (Uniform x) = hash (x % 1.0)
+
+testHashUniformEquality = hash (Uniform 10) == hash (Uniform 20)
+testHashUniformInequality = hash (Uniform 10.1) /= hash (Uniform 20.1)
+
+testHashMaybeEquality :: Boolean
+testHashMaybeEquality = y && z
+  where
+  w = Nothing :: Maybe Number
+  x = Just 10 :: Maybe Number
+  y = hash w == hash w
+  z = hash x == hash x
+
+testHashMaybeInequality :: Boolean
+testHashMaybeInequality = y && z
+  where
+  w = Nothing :: Maybe Number
+  x = Just 10 :: Maybe Number
+  y = hash w /= hash x
+  z = hash x /= hash y

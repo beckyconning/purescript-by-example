@@ -5,7 +5,8 @@ import Data.Array (concatMap)
 import Control.Monad (foldM)
 import Control.Monad.Eff
 
-import Graphics.Canvas hiding (translate)
+--import Graphics.Canvas hiding (translate)
+import Debug.Trace
 
 lsystem :: forall a m s. (Monad m) =>
                          [a] ->
@@ -13,12 +14,14 @@ lsystem :: forall a m s. (Monad m) =>
                          (s -> a -> m s) ->
                          Number ->
                          s -> m s
-lsystem init prod interpret n state = go init n
+lsystem initialSentence produce interpret numberOfProductions state = interpretSentence $ produceSentence initialSentence numberOfProductions
   where
-  go s 0 = foldM interpret state s
-  go s n = go (concatMap prod s) (n - 1)
+  interpretSentence sentence = foldM interpret state sentence
+  produceSentence sentence 0 = sentence
+  produceSentence sentence n = produceSentence (concatMap produce sentence) (n - 1)
 
-data Alphabet = L | R | F
+type Angle = Number
+data Alphabet = L | R | F Boolean
 
 type Sentence = [Alphabet]
 
@@ -28,32 +31,24 @@ type State =
   , theta :: Number
   }
 
-main = do
-  canvas <- getCanvasElementById "canvas"
-  ctx <- getContext2D canvas
+anAngle = Math.pi / 3
 
-  let
-    initial :: Sentence
-    initial = [F, R, R, F, R, R, F, R, R]
+initial :: Sentence
+initial = [F false]
 
-    productions :: Alphabet -> Sentence
-    productions L = [L]
-    productions R = [R]
-    productions F = [F, L, F, R, R, F, L, F]
+productions :: Alphabet -> Sentence
+productions L = [L]
+productions R = [R]
+productions (F true) = [F true,L,F false,L,F true,R,F false,R,F true,R,F false,R,F true,L,F false,L,F true]
+productions (F false) = [F false,R,F true,R,F false,L,F true,L,F false,L,F true,L,F false,R,F true,R,F false]
 
-    interpret :: State -> Alphabet -> Eff (canvas :: Canvas) State
-    interpret state L = return $ state { theta = state.theta - Math.pi / 3 }
-    interpret state R = return $ state { theta = state.theta + Math.pi / 3 }
-    interpret state F = do
-      let x' = state.x + Math.cos state.theta * 1.5
-          y' = state.y + Math.sin state.theta * 1.5
-      moveTo ctx state.x state.y
-      lineTo ctx x' y'
-      return { x: x', y: y', theta: state.theta }
+interpret :: State -> Alphabet -> Eff (trace :: Trace) State
+interpret state L = trace "L"
+interpret state R = trace "R"
+interpret state (F true) = trace "(F true)"
+interpret state (F false) = trace "(F false)"
 
-    initialState :: State
-    initialState = { x: 120, y: 200, theta: 0 }
+initialState :: State
+initialState = { x: 120, y: 200, theta: 0 }
 
-  setStrokeStyle "#000000" ctx
-
-  strokePath ctx $ lsystem initial productions interpret 5 initialState
+main = lsystem initial productions interpret 4 initialState

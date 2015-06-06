@@ -1,0 +1,35 @@
+bower purescript-st#*           cached git://github.com/purescript/purescript-st.git#0.1.0
+bower purescript-st#*         validate 0.1.0 against git://github.com/purescript/purescript-st.git#*
+bower purescript-st#*              new version for git://github.com/purescript/purescript-st.git#*
+bower purescript-st#*          resolve git://github.com/purescript/purescript-st.git#*
+bower purescript-st#*         checkout master
+bower purescript-st#*         resolved git://github.com/purescript/purescript-st.git#72506edc85
+
+{
+  name: 'purescript-st',
+  homepage: 'https://github.com/purescript/purescript-st',
+  description: 'The ST effect, for safe local mutation',
+  keywords: [
+    'purescript'
+  ],
+  license: 'MIT',
+  repository: {
+    type: 'git',
+    url: 'git://github.com/purescript/purescript-st.git'
+  },
+  ignore: [
+    '**/.*',
+    'bower_components',
+    'node_modules',
+    'output',
+    'test',
+    'bower.json',
+    'gulpfile.js',
+    'package.json'
+  ],
+  dependencies: {
+    'purescript-eff': '~0.1.0'
+  }
+}
+
+No versions available.

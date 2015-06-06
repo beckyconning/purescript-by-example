@@ -2,30 +2,38 @@ module Main where
 
 import Control.Monad.Eff
 import Control.Monad.Eff.Random
+import Control.Monad.Eff.DOM
+import Debug.Trace
 
 import Graphics.Canvas
 
-main = do
+drawRandomCircle = do
   canvas <- getCanvasElementById "canvas"
   ctx <- getContext2D canvas
 
-  setFillStyle "#FF0000" ctx
-  setStrokeStyle "#000000" ctx 
+  setFillStyle "purple" ctx
+  setStrokeStyle "pink" ctx
 
-  forE 1 100 $ \_ -> do
-    x <- random
-    y <- random
-    r <- random
+  x <- random
+  y <- random
+  w <- random
+  h <- random
 
-    let path = arc ctx 
-         { x     : x * 600
-         , y     : y * 600
-         , r     : r * 50
-         , start : 0
-         , end   : Math.pi * 2 
-         }
-    
-    fillPath ctx path
-    strokePath ctx path
+  let path = rect ctx
+       { x : x * 600
+       , y : y * 600
+       , w : (w + 2) * 50
+       , h : (h + 2) * 50
+       }
 
-    return unit
+  fillPath ctx path
+  strokePath ctx path
+
+  return unit
+
+rotateAround :: forall eff. { x :: Number, y :: Number } -> Number -> Context2D -> Eff (canvas :: Canvas | eff) Context2D
+rotateAround center angle ctx = translate { translateX: 0, translateY: 0 } ctx
+  >>= translate { translateX: center.x, translateY: center.y }
+  >>= rotate angle
+
+main = body >>= addEventListener "click" (drawRandomCircle >>= \_ -> trace "hi")

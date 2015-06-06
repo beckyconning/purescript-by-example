@@ -10,6 +10,9 @@ import Graphics.Canvas
 
 import Debug.Trace
 
+fillStrokePath :: forall e a. Context2D -> Eff (canvas :: Canvas | e) a -> Eff (canvas :: Canvas | e) a
+fillStrokePath ctx path = strokePath ctx path >>= \_ -> fillPath ctx path
+
 render :: forall eff. Number -> Context2D -> Eff (canvas :: Canvas | eff) Context2D
 render count ctx = do
   setFillStyle "#FFFFFF" ctx
@@ -22,6 +25,7 @@ render count ctx = do
     }
   
   setFillStyle "#00FF00" ctx 
+  setStrokeStyle "FF0000" ctx 
 
   withContext ctx $ do
     let scaleX = Math.sin (count * Math.pi / 4) + 1.5
@@ -32,7 +36,7 @@ render count ctx = do
     scale { scaleX: scaleX, scaleY: scaleY } ctx 
     translate { translateX: -100, translateY: -100 } ctx
 
-    fillPath ctx $ rect ctx
+    fillStrokePath ctx $ rect ctx
       { x: 0
       , y: 0
       , w: 200

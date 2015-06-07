@@ -2,15 +2,17 @@ module HRec where
 
 import Data.Function
 import Data.Maybe
+import Data.Array
+import Data.String (joinWith)
 
 foreign import data HRec :: * -> *
 
---instance showHRec :: (Show a) => Show (HRec a) where
---  show rec = "HRec { " ++ Data.String.joinWith ", " (runFn3 foldHRec f [] rec) ++ " }"
---    where
---    f label value = show k ++ ": " ++ show a
---    values =
---    labels = runFn2 mapHRecLabel (\label _ -> label + ": ") rec
+-- this doesn't seem right but i can't think of anything else
+instance showHRec :: (Show a) => Show (HRec a) where
+  show rec = "HRec { " ++ joinWith ", " (zipWith (++) labelStrings valueStrings) ++ " }"
+    where
+    labelStrings = toArray $ runFn2 mapHRecLabel (\label _ -> label ++ ": ") rec
+    valueStrings = toArray $ runFn2 mapHRecLabel (\_ value -> show value) rec
 
 foreign import empty
   "var empty = {}" :: forall a. HRec a
@@ -39,11 +41,11 @@ foreign import mapHRec
   \}" :: forall a b. Fn2 (a -> b) (HRec a) (HRec b)
 
 foreign import mapHRecLabel
-  "function mapHRec(f, rec) {\
+  "function mapHRecLabel(f, rec) {\
   \  var mapped = {};\
   \  for (var k in rec) {\
   \    if (rec.hasOwnProperty(k)) {\
-  \      mapped[k] = f(k, rec[k]);\
+  \      mapped[k] = f(k)(rec[k]);\
   \    }\
   \  }\
   \  return mapped;\
@@ -62,6 +64,9 @@ foreign import foldHRec
   \  }\
   \  return acc;\
   \}" :: forall a r. Fn3 (Fn3 r String a r) r (HRec a) r
+
+toArray :: forall a. HRec a -> [a]
+toArray = foldHRec' (\acc _ value -> value : acc) []
 
 union :: forall a. HRec a -> HRec a -> HRec a
 union = runFn3 foldHRec insert

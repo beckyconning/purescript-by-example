@@ -12,6 +12,10 @@ import Data.GameEnvironment
 import Control.Monad.Eff
 import Control.Monad.RWS
 import Control.Monad.RWS.Class
+import Control.Monad.RWS.Trans
+import Control.Monad.Error.Class
+import Control.Monad.Error.Trans
+import Control.Monad.Error
 
 import Game
 
@@ -31,7 +35,7 @@ runGame env = do
   let
     lineHandler :: forall eff. GameState -> String -> Eff (console :: RL.Console, trace :: Trace | eff) Unit
     lineHandler currentState input = do
-      let result = runRWS (game (split " " input)) env currentState
+      let result = runRWS (runErrorT (game (split " " input))) env currentState
       foreachE result.log trace
       RL.setLineHandler (lineHandler result.state) interface
       RL.prompt interface
@@ -51,4 +55,5 @@ main = Y.runY (Y.usage "$0 -p <player name>") $ runGame <$> env
                                    false
                         <*> Y.flag "d" ["debug"]
                                    (Just "Use debug mode")
-
+                        <*> Y.flag "c" ["cheat"]
+                                   (Just "Use cheat mode")

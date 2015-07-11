@@ -7,11 +7,13 @@ import Control.Monad.Eff.Ref
 
 import Control.Monad.Cont.Trans
 
+import Files
+
 type WithRef eff = Eff (ref :: Ref | eff)
 
 type ContRef eff = ContT Unit (WithRef eff)
 
-par :: forall a b r eff. (a -> b -> r) -> 
+par :: forall a b r eff. (a -> b -> r) ->
          ContRef eff a -> ContRef eff b -> ContRef eff r
 par f ca cb = ContT $ \k -> do
   ra <- newRef Nothing
@@ -40,5 +42,3 @@ instance applyParallel :: Apply (Parallel eff) where
 
 instance applicativeParallel :: Applicative (Parallel eff) where
   pure a = Parallel $ pure a
-
-

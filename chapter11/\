@@ -8,25 +8,19 @@ import Data.GameItem
 import Data.GameState
 import Data.GameEnvironment
 
-import Control.Monad.Trans
-
 import Control.Monad.Error
 import Control.Monad.Error.Class
 import Control.Monad.Error.Trans
 
-import Control.Monad.RWS (RWS())
--- import Control.Monad.RWS.Class
-
-import Control.Monad.Reader.Class
-import Control.Monad.Writer.Class
-import Control.Monad.State.Class
+import Control.Monad.RWS
+import Control.Monad.RWS.Class
 
 import qualified Data.Map as M
 import qualified Data.Set as S
 
 type Log = [String]
 
-type Game = ErrorT String (RWS GameEnvironment Log GameState)
+type Game = ErrorT [String] (RWS GameEnvironment Log GameState)
 
 describeRoom :: Game Unit
 describeRoom = do
@@ -38,25 +32,25 @@ describeRoom = do
 
 pickUp :: GameItem -> Game Unit
 pickUp item = do
-  GameState state <- get
+  GameState state <- lift $ get
   case state.player `M.lookup` state.items of
     Just items
       | item `S.member` items -> do
           let newItems = M.update (Just <<< S.delete item) state.player state.items
               newInventory = S.insert item state.inventory
-          put $ GameState state { items     = newItems
+          lift $ put $ GameState state { items     = newItems
                                        , inventory = newInventory
                                        }
-          tell ["You now have the " ++ show item]
-    _ -> tell ["I don't see that item here."]
+          lift $ tell ["You now have the " ++ show item]
+    _ -> lift $ tell ["I don't see that item here."]
 
 cheat :: Game Unit
 cheat = do
   GameState state <- get
   return unit
   put $ GameState state { items = M.empty
-                             , inventory = foldr S.union S.empty state.items
-                             }
+                        , inventory = foldr S.union S.empty state.items
+                        }
   tell ["You magic all the items into your bag"]
 
 move :: Number -> Number -> Game Unit
@@ -78,9 +72,9 @@ use Matches = do
     then do
       GameEnvironment env <- ask
       tell [ "You light the candle."
-                  , "Congratulations, " ++ env.playerName ++ "!"
-                  , "You win!"
-                  ]
+           , "Congratulations, " ++ env.playerName ++ "!"
+           , "You win!"
+           ]
     else tell ["You don't have anything to light."]
 
 game :: [String] -> Game Unit
@@ -104,11 +98,7 @@ game ["take", item] = case readItem item of
   Nothing -> tell ["I don't know what item you are referring to."]
   Just gameItem -> pickUp gameItem
 
-game ["cheat"] = do
-  GameEnvironment env <- ask
-  if env.cheatMode
-    then cheat
-    else throwError "Not running in cheat mode."
+game ["cheat"] = cheat
 
 game ["use", item] = case readItem item of
   Nothing -> tell ["I don't know what item you are referring to."]
@@ -123,8 +113,8 @@ game ["debug"] = do
   if env.debugMode
     then do
       state <- get
-      tell [show (state :: GameState)]
-    else throwError "Not running in debug mode."
+      tell [show state]
+    else tell ["Not running in debug mode."]
 
 game [] = return unit
 

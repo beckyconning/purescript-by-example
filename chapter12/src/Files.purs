@@ -2,6 +2,7 @@ module Files where
 
 import Data.Either
 import Data.Function
+import Debug.Trace
 
 import Control.Monad.Eff
 
@@ -25,11 +26,11 @@ foreign import readFileImpl
   \      }\
   \    });\
   \  };\
-  \}" :: forall eff. Fn3 FilePath 
-                         (String -> Eff (fs :: FS | eff) Unit) 
-                         (ErrorCode -> Eff (fs :: FS | eff) Unit) 
-                         (Eff (fs :: FS | eff) Unit) 
-                        
+  \}" :: forall eff. Fn3 FilePath
+                         (String -> Eff (fs :: FS | eff) Unit)
+                         (ErrorCode -> Eff (fs :: FS | eff) Unit)
+                         (Eff (fs :: FS | eff) Unit)
+
 foreign import writeFileImpl
   "function writeFileImpl(path, data, onSuccess, onFailure) {\
   \  return function() {\
@@ -43,10 +44,10 @@ foreign import writeFileImpl
   \  };\
   \}" :: forall eff. Fn4 FilePath
                          String
-                         (Eff (fs :: FS | eff) Unit) 
-                         (ErrorCode -> Eff (fs :: FS | eff) Unit) 
-                         (Eff (fs :: FS | eff) Unit) 
-                       
+                         (Eff (fs :: FS | eff) Unit)
+                         (ErrorCode -> Eff (fs :: FS | eff) Unit)
+                         (Eff (fs :: FS | eff) Unit)
+
 readFile :: forall eff. FilePath -> (Either ErrorCode String -> Eff (fs :: FS | eff) Unit) -> Eff (fs :: FS | eff) Unit
 readFile path k = runFn3 readFileImpl path (k <<< Right) (k <<< Left)
 
@@ -69,7 +70,32 @@ readFileContErr path = ErrorT $ readFileCont path
 writeFileContErr :: forall eff. FilePath -> String -> EC eff Unit
 writeFileContErr path text = ErrorT $ writeFileCont path text
 
-copyFileContErr :: forall eff. FilePath -> FilePath -> EC eff Unit 
+copyFileContErr :: forall eff. FilePath -> FilePath -> EC eff Unit
 copyFileContErr src dest = do
   content <- readFileContErr src
   writeFileContErr dest content
+
+concatFileCont headPath tailPath outPath = do
+  eOut <- readCont
+  case eOut of
+    Right out -> writeFileCont outPath out
+    Left outError -> return $ Left outError
+  where
+  readCont = do
+    eHead <- readFileCont headPath
+    case eHead of
+      Right head -> do
+        eTail  <- readFileCont tailPath
+        case eTail of
+          Right tail -> return $ Right $ head <> tail
+          Left tailError -> return $ Left tailError
+      Left headErr -> return $ Left headErr
+
+concatFileContErr :: forall eff. FilePath -> FilePath -> FilePath -> EC eff Unit
+concatFileContErr headPath tailPath outPath = readContErr >>= writeFileContErr outPath
+  where
+  readContErr = readFileContErr headPath
+    >>= \head -> readFileContErr tailPath
+    >>= \tail -> return $ head <> tail
+
+concatFile headPath tailPath outPath = runContT (runErrorT (concatFileContErr headPath tailPath outPath)) print

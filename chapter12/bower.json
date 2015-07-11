@@ -15,8 +15,8 @@
     "package.json"
   ],
   "dependencies": {
-    "purescript-transformers": "~0.2.1",
-    "purescript-strings": "~0.2.1",
-    "purescript-refs": "~0.1.1"
+    "purescript-transformers": "~0.5.5",
+    "purescript-strings": "~0.4.5",
+    "purescript-refs": "~0.1.3"
   }
 }

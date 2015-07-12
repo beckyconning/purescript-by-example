@@ -71,4 +71,4 @@ import Debug.Trace
 --    (setTimeoutCont 5000 >>= \_ -> return "goodbye"))
 --  trace
 
-main = runContT (runErrorT $ getAllReferences [exampleFilePath]) print
+main = runContT (runErrorT $ getAllReferences exampleFilePath) print

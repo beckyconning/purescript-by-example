@@ -4,6 +4,7 @@ import Control.Apply
 import Control.Monad.Cont.Trans
 import Control.Monad.Error.Trans
 import Control.Monad.Parallel
+import Control.Monad.Eff.Ref
 import Data.Array (concat)
 import Data.Either
 import Data.Foreign
@@ -14,27 +15,20 @@ import Files
 exampleFilePath :: FilePath
 exampleFilePath = "/Users/beckyconning/Documents/purescript-book/chapter12/spider/1.json"
 
--- Throws errors from reading files but ignores those from parsing reference files
-getAllReferences :: forall eff. [FilePath] -> ErrorT ErrorCode (ContRef (fs :: FS | eff)) [FilePath]
-getAllReferences filePaths = (<>) <$> references <*> nextReferences
+getAllReferences :: forall eff. FilePath -> EC (ref :: Ref | eff) [FilePath]
+getAllReferences filePath = (filePath :) <$> getDirectReferences filePath >>= getManyReferences
   where
-  referencesPar :: ErrorT ErrorCode (Parallel (fs :: FS | eff)) [FilePath]
-  referencesPar = concat <$> getDirectReferences `traverse` filePaths
+  getManyReferences references = concat <$> errorTParallelFor getAllReferences references
+  errorTParallelFor f = mapErrorT runParallel <<< traverse (mapErrorT Parallel <<< f)
 
-  references :: ErrorT ErrorCode (ContRef (fs :: FS | eff)) [FilePath]
-  references = mapErrorT runParallel referencesPar
+getDirectReferences :: forall eff. FilePath -> EC eff [FilePath]
+getDirectReferences filePath = runFReferences <$> (readReferencesJSON <$> readFileContErr filePath)
+  where
+  runFReferences :: F [FilePath] -> [FilePath]
+  runFReferences = either (\err -> [show err]) id
 
-  nextReferences :: ErrorT ErrorCode (ContRef (fs :: FS | eff)) [FilePath]
-  nextReferences = references >>= getAllReferences
+  readReferencesFileErr :: forall eff. FilePath -> ErrorT ErrorCode (ContRef (fs :: FS | eff)) String
+  readReferencesFileErr = readFileContErr
 
-  getDirectReferences :: forall eff. FilePath -> ErrorT ErrorCode (Parallel (fs :: FS | eff)) [FilePath]
-  getDirectReferences filePath = runFReferences <$> (readReferencesJSON <$> readFileParErr filePath)
-    where
-    runFReferences :: F [FilePath] -> [FilePath]
-    runFReferences = either (\err -> [show err]) id
-
-    readFileParErr :: forall eff. FilePath -> ErrorT ErrorCode (Parallel (fs :: FS | eff)) String
-    readFileParErr = ErrorT <<< Parallel <<< readFileCont
-
-    readReferencesJSON :: String -> F [FilePath]
-    readReferencesJSON json = parseJSON json >>= readProp "references" <<< toForeign
+  readReferencesJSON :: String -> F [FilePath]
+  readReferencesJSON json = parseJSON json >>= readProp "references" <<< toForeign

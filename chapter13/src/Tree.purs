@@ -4,7 +4,7 @@ import Prelude.Unsafe (unsafeIndex)
 import Data.Array (length, drop, take)
 import Data.Monoid
 
-data Tree a 
+data Tree a
   = Leaf
   | Branch (Tree a) a (Tree a)
 

@@ -1,6 +1,5 @@
 module Data.DOM.Name
-  ( Element()
-  , Attribute()
+  ( Attribute()
   , Name()
   , Content()
   , AttributeKey()
@@ -11,7 +10,7 @@ module Data.DOM.Name
   , a
   , div
   , p
-  , img 
+  , img
 
   , href
   , _class
@@ -22,14 +21,14 @@ module Data.DOM.Name
 
   , (:=)
   , text
-  , elem
-  , newName 
+  , newName
+  , isMobile
 
   , render
   ) where
 
 import Data.Maybe
-import Data.Tuple (snd)
+import Data.Tuple
 import Data.Array (map)
 import Data.String (joinWith)
 import Data.Foldable (for_)
@@ -50,11 +49,13 @@ data ContentF a
   = TextContent String a
   | ElementContent Element a
   | NewName (Name -> a)
+  | IsMobile (Boolean -> a)
 
 instance functorContentF :: Functor ContentF where
   (<$>) f (TextContent s a) = TextContent s (f a)
   (<$>) f (ElementContent e a) = ElementContent e (f a)
   (<$>) f (NewName k) = NewName (f <<< k)
+  (<$>) f (IsMobile k) = IsMobile (f <<< k)
 
 newtype Content a = Content (Free ContentF a)
 
@@ -98,12 +99,15 @@ elem e = Content $ liftF $ ElementContent e unit
 newName :: Content Name
 newName = Content $ liftF $ NewName id
 
+isMobile :: Content Boolean
+isMobile = Content $ liftF $ IsMobile id
+
 class IsValue a where
   toValue :: a -> String
 
 instance stringIsValue :: IsValue String where
   toValue = id
- 
+
 instance numberIsValue :: IsValue Number where
   toValue = show
 
@@ -116,17 +120,17 @@ instance nameIsValue :: IsValue Name where
   , value: toValue value
   }
 
-a :: [Attribute] -> Content Unit -> Element
-a attribs content = element "a" attribs (Just content)
+a :: [Attribute] -> Content Unit -> Content Unit
+a attribs content = elem $ element "a" attribs (Just content)
 
-div :: [Attribute] -> Content Unit -> Element
-div attribs content = element "div" attribs (Just content)
+div :: [Attribute] -> Content Unit -> Content Unit
+div attribs content = elem $ element "div" attribs (Just content)
 
-p :: [Attribute] -> Content Unit -> Element
-p attribs content = element "p" attribs (Just content)
+p :: [Attribute] -> Content Unit -> Content Unit
+p attribs content = elem $ element "p" attribs (Just content)
 
-img :: [Attribute] -> Element
-img attribs = element "img" attribs Nothing
+img :: [Attribute] -> Content Unit
+img attribs = elem $ element "img" attribs Nothing
 
 data Href
   = URLHref String
@@ -154,10 +158,10 @@ width = AttributeKey "width"
 height :: AttributeKey Number
 height = AttributeKey "height"
 
-type Interp = RWS Unit String Number
+type Interp = RWS Boolean String Number
 
-render :: Element -> String
-render e = snd $ evalRWS (renderElement e) unit 0
+render :: forall a. Content a -> Tuple a String
+render (Content c) = evalRWS (iterM renderContentItem c) false 0
   where
   renderElement :: Element -> Interp Unit
   renderElement (Element e) = do
@@ -167,15 +171,8 @@ render e = snd $ evalRWS (renderElement e) unit 0
       tell " "
       renderAttribute a
     renderContent e.content
-    
+
     where
-    renderAttribute :: Attribute -> Interp Unit
-    renderAttribute (Attribute a) = do
-      tell a.key
-      tell "=\""
-      tell a.value
-      tell "\""
-    
     renderContent :: Maybe (Content Unit) -> Interp Unit
     renderContent Nothing = tell " />"
     renderContent (Just (Content content)) = do
@@ -185,16 +182,24 @@ render e = snd $ evalRWS (renderElement e) unit 0
       tell e.name
       tell ">"
 
-    renderContentItem :: forall a. ContentF (Interp a) -> Interp a
-    renderContentItem (TextContent s rest) = do
-      tell s
-      rest
-    renderContentItem (ElementContent e rest) = do
-      renderElement e
-      rest
-    renderContentItem (NewName k) = do
-      n <- get
-      let name = Name $ "name" ++ show n
-      put $ n + 1
-      k name
+  renderContentItem :: forall a. ContentF (Interp a) -> Interp a
+  renderContentItem (TextContent s rest) = do
+    tell s
+    rest
+  renderContentItem (ElementContent e rest) = do
+    renderElement e
+    rest
+  renderContentItem (NewName k) = do
+    n <- get
+    let name = Name $ "name" ++ show n
+    put $ n + 1
+    k name
+  renderContentItem (IsMobile k) = ask >>= k
+
+  renderAttribute :: Attribute -> Interp Unit
+  renderAttribute (Attribute a) = do
+    tell a.key
+    tell "=\""
+    tell a.value
+    tell "\""
 

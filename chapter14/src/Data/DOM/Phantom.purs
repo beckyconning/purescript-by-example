@@ -3,13 +3,14 @@ module Data.DOM.Phantom
   , Attribute()
   , Content()
   , AttributeKey()
+  , Length(..)
   , IsValue
   , toValue
 
   , a
   , div
   , p
-  , img 
+  , img
 
   , href
   , _class
@@ -20,7 +21,7 @@ module Data.DOM.Phantom
   , (:=)
   , text
   , elem
-  
+
   , render
   ) where
 
@@ -34,12 +35,14 @@ newtype Element = Element
   , content      :: Maybe [Content]
   }
 
-data Content 
+data Content
   = TextContent String
   | ElementContent Element
 
+data Length = Pixels Number | Percentage Number
+
 newtype Attribute = Attribute
-  { key          :: String 
+  { key          :: String
   , value        :: String
   }
 
@@ -66,6 +69,10 @@ instance stringIsValue :: IsValue String where
 
 instance numberIsValue :: IsValue Number where
   toValue = show
+
+instance lengthIsValue :: IsValue Length where
+  toValue (Pixels n)     = show n
+  toValue (Percentage n) = show n ++ "%"
 
 (:=) :: forall a. (IsValue a) => AttributeKey a -> a -> Attribute
 (:=) (AttributeKey key) value = Attribute
@@ -94,14 +101,14 @@ _class = AttributeKey "class"
 src :: AttributeKey String
 src = AttributeKey "src"
 
-width :: AttributeKey Number
+width :: AttributeKey Length
 width = AttributeKey "width"
 
-height :: AttributeKey Number
+height :: AttributeKey Length
 height = AttributeKey "height"
 
 render :: Element -> String
-render (Element e) = 
+render (Element e) =
   "<" ++ e.name ++
   " " ++ joinWith " " (map renderAttribute e.attribs) ++
   renderContent e.content
@@ -109,14 +116,13 @@ render (Element e) =
   where
   renderAttribute :: Attribute -> String
   renderAttribute (Attribute a) = a.key ++ "=\"" ++ a.value ++ "\""
-  
+
   renderContent :: Maybe [Content] -> String
   renderContent Nothing = " />"
-  renderContent (Just content) = 
+  renderContent (Just content) =
     ">" ++ joinWith "" (map renderContentItem content) ++
     "</" ++ e.name ++ ">"
     where
     renderContentItem :: Content -> String
     renderContentItem (TextContent s) = s
     renderContentItem (ElementContent e) = render e
-

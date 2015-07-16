@@ -20,8 +20,10 @@ module Data.DOM.Free
   , (:=)
   , text
   , elem
+  , comment
   
   , render
+  , render'
   ) where
 
 import Data.Maybe
@@ -29,7 +31,9 @@ import Data.Array (map)
 import Data.String (joinWith)
 import Data.Foldable (for_)
 
+import Control.Monad.Eff
 import Control.Monad.Free
+import Control.Monad.ST
 import Control.Monad.Writer
 import Control.Monad.Writer.Class
 
@@ -42,10 +46,12 @@ newtype Element = Element
 data ContentF a
   = TextContent String a
   | ElementContent Element a
+  | CommentContent String a
 
 instance functorContentF :: Functor ContentF where
   (<$>) f (TextContent s a) = TextContent s (f a)
   (<$>) f (ElementContent e a) = ElementContent e (f a)
+  (<$>) f (CommentContent s a) = CommentContent s (f a)
 
 newtype Content a = Content (Free ContentF a)
 
@@ -85,6 +91,9 @@ text s = Content $ liftF $ TextContent s unit
 
 elem :: Element -> Content Unit
 elem e = Content $ liftF $ ElementContent e unit
+
+comment :: String -> Content Unit
+comment s = Content $ liftF $ CommentContent s unit
 
 class IsValue a where
   toValue :: a -> String
@@ -147,21 +156,41 @@ render e = execWriter $ renderElement e
       tell "=\""
       tell a.value
       tell "\""
-    
+
     renderContent :: Maybe (Content Unit) -> Writer String Unit
     renderContent Nothing = tell " />"
     renderContent (Just (Content content)) = do
       tell ">"
-      iterM renderContentItem content
+      goM renderContentItem content
       tell "</"
       tell e.name
       tell ">"
 
-    renderContentItem :: forall a. ContentF (Writer String a) -> Writer String a
-    renderContentItem (TextContent s rest) = do
-      tell s
-      rest
-    renderContentItem (ElementContent e rest) = do
-      renderElement e
-      rest
+    renderContentItem :: forall a. ContentF (Free ContentF a) -> Writer String (Free ContentF a)
+    renderContentItem (TextContent s rest) = tell s >>= \_ -> return rest
+    renderContentItem (ElementContent e rest) = renderElement e >>= \_ -> return rest
+    renderContentItem (CommentContent s rest) = tell ("<!-- " ++ s ++ " -->") >>= \_ -> return rest
 
+
+render' :: Element -> String
+render' = pureST <<< renderST
+  where
+  renderST :: forall eff h. Element -> Eff (st :: ST h | eff) String
+  renderST e = newSTRef "" >>= \ref -> (renderElement ref e)
+    where
+    renderElement ref' (Element e) = modifySTRef ref' (++ ("<" ++ e.name))
+      >>= \_ -> for_ e.attribs (\a -> modifySTRef ref' (++ " ") >>= \_ -> renderAttribute ref' a)
+      >>= \_ -> renderContent ref' e.content
+
+      where
+      renderAttribute ref'' (Attribute a) = modifySTRef ref' (++ (a.key ++ "=\"" ++ a.value ++ "\""))
+
+      renderContent ref'' Nothing = modifySTRef ref'' (++ " />")
+      renderContent ref'' (Just (Content content)) = modifySTRef ref'' (++ ">")
+        >>= \_ -> goM (renderContentItem ref'') content
+        >>= \_ -> modifySTRef ref'' (++ ("</" ++ e.name ++ ">"))
+
+      renderContentItem ref'' (TextContent s rest)    = modifySTRef ref'' (++ s) >>= \_ -> return rest
+      renderContentItem ref'' (ElementContent e rest) = renderElement ref'' e >>= \_ -> return rest
+      renderContentItem ref'' (CommentContent s rest) = modifySTRef ref'' (++ comment) >>= \_ -> return rest
+        where comment = ("<!-- " ++ s ++ " -->")

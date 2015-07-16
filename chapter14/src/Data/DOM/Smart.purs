@@ -3,11 +3,13 @@ module Data.DOM.Smart
   , Attribute()
   , Content()
   , AttributeKey()
+  , False()
+  , True()
 
   , a
   , div
   , p
-  , img 
+  , img
 
   , href
   , _class
@@ -15,10 +17,14 @@ module Data.DOM.Smart
   , width
   , height
 
+  , disabled
+  , checked
+
   , (:=)
+  , emptyAttr
   , text
   , elem
-  
+
   , render
   ) where
 
@@ -32,13 +38,13 @@ newtype Element = Element
   , content      :: Maybe [Content]
   }
 
-data Content 
+data Content
   = TextContent String
   | ElementContent Element
 
 newtype Attribute = Attribute
-  { key          :: String 
-  , value        :: String
+  { key          :: String
+  , value        :: Maybe String
   }
 
 element :: String -> [Attribute] -> Maybe [Content] -> Element
@@ -54,13 +60,20 @@ text = TextContent
 elem :: Element -> Content
 elem = ElementContent
 
-newtype AttributeKey = AttributeKey String
+data True
 
-(:=) :: AttributeKey -> String -> Attribute
+data False
+
+newtype AttributeKey a = AttributeKey String
+
+(:=) :: AttributeKey True -> String -> Attribute
 (:=) (AttributeKey key) value = Attribute
   { key: key
-  , value: value
+  , value: Just value
   }
+
+emptyAttr :: AttributeKey False -> Attribute
+emptyAttr (AttributeKey key) = Attribute { key: key, value: Nothing }
 
 a :: [Attribute] -> [Content] -> Element
 a attribs content = element "a" attribs (Just content)
@@ -74,31 +87,39 @@ p attribs content = element "p" attribs (Just content)
 img :: [Attribute] -> Element
 img attribs = element "img" attribs Nothing
 
-href :: AttributeKey
+href :: AttributeKey True
 href = AttributeKey "href"
 
-_class :: AttributeKey
+_class :: AttributeKey True
 _class = AttributeKey "class"
 
-src :: AttributeKey
+src :: AttributeKey True
 src = AttributeKey "src"
 
-width :: AttributeKey
+width :: AttributeKey True
 width = AttributeKey "width"
 
-height :: AttributeKey 
+height :: AttributeKey True
 height = AttributeKey "height"
 
+disabled :: AttributeKey False
+disabled = AttributeKey "disabled"
+
+checked :: AttributeKey False
+checked = AttributeKey "checked"
+
 render :: Element -> String
-render (Element e) = 
+render (Element e) =
   "<" ++ e.name ++
   " " ++ joinWith " " (map renderAttribute e.attribs) ++
   renderContent e.content
 
   where
   renderAttribute :: Attribute -> String
-  renderAttribute (Attribute a) = a.key ++ "=\"" ++ a.value ++ "\""
-  
+  renderAttribute (Attribute a) = a.key ++ value
+    where
+    value = maybe "" (\s -> "=\"" ++ s ++ "\"") a.value
+
   renderContent :: Maybe [Content] -> String
   renderContent Nothing = " />"
   renderContent (Just content) = 

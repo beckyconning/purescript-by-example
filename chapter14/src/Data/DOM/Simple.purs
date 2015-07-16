@@ -10,17 +10,17 @@ newtype Element = Element
   , content      :: Maybe [Content]
   }
 
-data Content 
+data Content
   = TextContent String
   | ElementContent Element
 
 newtype Attribute = Attribute
-  { key          :: String 
+  { key          :: String
   , value        :: String
   }
 
 render :: Element -> String
-render (Element e) = 
+render (Element e) =
   "<" ++ e.name ++
   " " ++ joinWith " " (map renderAttribute e.attribs) ++
   renderContent e.content
@@ -28,10 +28,10 @@ render (Element e) =
   where
   renderAttribute :: Attribute -> String
   renderAttribute (Attribute a) = a.key ++ "=\"" ++ a.value ++ "\""
-  
+
   renderContent :: Maybe [Content] -> String
   renderContent Nothing = " />"
-  renderContent (Just content) = 
+  renderContent (Just content) =
     ">" ++ joinWith "" (map renderContentItem content) ++
     "</" ++ e.name ++ ">"
     where
